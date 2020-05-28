@@ -3,6 +3,8 @@ import kwant
 import numpy as np
 from matplotlib import pyplot
 import scipy.sparse.linalg as sla
+from tqdm import  tqdm
+
 syst = kwant.Builder()
 
 b ,a ,c = 4.43, 3.27, 1
@@ -21,8 +23,8 @@ t3 = -0.205
 t4 = -0.105
 t5 = -0.055
 
-L = 5 #Q=33 Ly=5.2nm
-W = 10 #N=20 Lx=4.4nm
+L = 15  #Q=33 Ly=5.2nm
+W = 11 #N=20 Lx=4.4nm
 # Define the scattering region
 sub_a, sub_b, sub_c, sub_d = lat.sublattices
 
@@ -83,7 +85,7 @@ sym_left_lead = kwant.TranslationalSymmetry((-a, 0))
 left_lead = kwant.Builder(sym_left_lead)
 
 for i in range(2):
-    for j in range(W):
+    for j in tqdm(range(W)):
 # On-site Hamiltonian
         left_lead[sub_a(i, j)] = base
         left_lead[sub_b(i, j)] = base
@@ -160,8 +162,7 @@ fig, (ax1, ax0) = pyplot.subplots(ncols=2, figsize=[6, 10])
 # Now that we have the system, we can compute conductance
 energies = []
 data = []
-for energy in np.linspace(-3,3,1000):
-
+for energy in tqdm(np.linspace(-3,3,1000)):
     # compute the scattering matrix at a given energy
     smatrix = kwant.smatrix(syst, energy)
 
@@ -176,7 +177,7 @@ ax0.plot(data , energies, "r")
 #ax0.set_ylabel("energy [t]")
 ax0.set_xlabel("conductance [e^2/h]")
 ax0.set_ylim(-3,3)
-ax0.set_xlim(0,16)
+ax0.set_xlim(-0.1,6.1)
 #pyplot.show()
 momenta = np.linspace(-np.pi, np.pi, 101)
 bands = kwant.physics.Bands(syst.leads[0])
@@ -207,20 +208,3 @@ filepath = 'hamiltoni.xlsx'
 
 df.to_excel(filepath, index=False)
 '''
-def plot_conductance(syst, energy, fluxes):
-    # compute conductance
-    
-    normalized_fluxes = [flux / (2 * np.pi) for flux in fluxes]
-    data = []
-    for flux in fluxes:
-        smatrix = kwant.smatrix(syst, energy, params=dict(phi=flux))
-        data.append(smatrix.transmission(1, 0))
-    
-    pyplot.figure()
-    pyplot.plot(normalized_fluxes, data)
-    pyplot.xlabel("flux [flux quantum]")
-    pyplot.ylabel("conductance [e^2/h]")
-    pyplot.show()
-
-plot_conductance(syst, energy=4, fluxes=[0.01 * i * 3 * 2 * np.pi
-                                                for i in range(100)])
