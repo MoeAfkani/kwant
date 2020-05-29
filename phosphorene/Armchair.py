@@ -1,7 +1,7 @@
 # Physics background
 import kwant
 import numpy as np
-from matplotlib import pyplot
+import matplotlib.pyplot as plt
 import scipy.sparse.linalg as sla
 from tqdm import  tqdm
 import scipy
@@ -17,7 +17,8 @@ lat = kwant.lattice.Polyatomic([[a,0],[0,b]],#bravis vectores
                                 [0.00*a , 0.00*b ],
                                 [0.25*a , 0.50*b ],
                                 [0.50*a , 0.50*b ],
-                                [0.75*a , 0.00*b ]])
+                                [0.75*a , 0.00*b ]],
+                                       norbs=1)
 
 t1 = -1.220
 t2 =  3.665
@@ -25,8 +26,8 @@ t3 = -0.205
 t4 = -0.105
 t5 = -0.055
 
-W = 2 #Q = 21
-L = 1 #N = 32
+W = 11 #Q = 21
+L = 16 #N = 32
 # Define the scattering region
 sub_a, sub_b, sub_c, sub_d = lat.sublattices
 
@@ -114,6 +115,7 @@ for i in range(2):
             left_lead[sub_d(i-1,j),sub_c(i,j-1)] = t3            
         if i >0:
             left_lead[sub_c(i, j),sub_d(i-1,j)] = t3
+########### t3 ########### 
 ########### t3 ########### 
 ########### t4 ###########
         left_lead[sub_b(i, j),sub_d(i, j)] = t4
@@ -211,7 +213,7 @@ def plot_wave_function(sys):
     
 #plot_wave_function(syst)
 
-fig, (ax1, ax0) = pyplot.subplots(ncols=2, figsize=[6, 10])
+fig, (ax1, ax0) = plt.subplots(ncols=2, figsize=[6, 10])
 
 # Now that we have the system, we can compute conductance
 energies = []
@@ -226,25 +228,25 @@ for energy in tqdm(np.linspace(-3,3,10)):
     data.append(smatrix.transmission(1, 0))
 # Use matplotlib to write output
 # We should see conductance steps
-#pyplot.figure()
+#plt.figure()
 ax0.plot(data , energies, "r")
 #ax0.set_ylabel("energy [t]")
 ax0.set_xlabel("conductance [e^2/h]")
 ax0.set_ylim(-3,3)
 ax0.set_xlim(-0.1,10)
-#pyplot.show()
+##plt.show()
 momenta = np.linspace(-np.pi, np.pi, 101)
 bands = kwant.physics.Bands(syst.leads[0])
 energies = [bands(k) for k in momenta]
-#pyplot.figure(figsize=[2.0, 5])
+#plt.figure(figsize=[2.0, 5])
 momentaPI = [mom/np.pi for mom in momenta]
 ax1.plot(momentaPI, energies, "b")
 ax1.set_xlabel("Wavevctor [(lattice constant)^-1]")
 ax1.set_ylabel("energy [t]")
 ax1.set_ylim(-3,3)
 ax1.set_xlim(-1,1)
-#pyplot.savefig("ArmChair.png", dpi=300)
-pyplot.show()
+plt.savefig("ArmChair.png", dpi=300)
+#plt.show()
     
 
 
@@ -260,7 +262,7 @@ spectrum = kwant.kpm.SpectralDensity(syst, rng=0)
 energies, densities = spectrum()
 energy_subset = np.linspace(-7,-1)
 density_subset = spectrum(energy_subset)
-pyplot.plot(energy_subset,density_subset)
+plt.plot(energy_subset,density_subset)
 
 # Fermi energy 0.1 and temperature 0.2
 fermi = lambda E: 1 / (np.exp((E - 0.1) / 0.2) + 1)
@@ -268,26 +270,27 @@ fermi = lambda E: 1 / (np.exp((E - 0.1) / 0.2) + 1)
 print('number of filled states:', spectrum.integrate(fermi))
 
 def plot_dos(labels_to_data):
-    pyplot.figure()
+    plt.figure()
     for label, (x, y) in labels_to_data:
-        pyplot.plot(x, y.real, label=label, linewidth=2)
-    pyplot.legend(loc=2, framealpha=0.5)
-    pyplot.xlabel("energy [t]")
-    pyplot.ylabel("DoS [a.u.]")
-    pyplot.show()
-
+        plt.plot(x, y.real, label=label, linewidth=2)
+    plt.legend(loc=2, framealpha=0.5)
+    plt.xlabel("energy [t]")
+    plt.ylabel("DoS [a.u.]")
+    plt.savefig("ArmchairDos.png", dpi=300)   
+    #plt.show()
 
 # Plot fill density of states plus curves on the same axes.
 def plot_dos_and_curves(dos, labels_to_data):
-    pyplot.figure()
-    pyplot.fill_between(dos[0], dos[1], label="DoS [a.u.]",
+    plt.figure()
+    plt.fill_between(dos[0], dos[1], label="DoS [a.u.]",
                      alpha=0.5, color='gray')
     for label, (x, y) in labels_to_data:
-        pyplot.plot(x, y, label=label, linewidth=2)
-    pyplot.legend(loc=2, framealpha=0.5)
-    pyplot.xlabel("energy [t]")
-    pyplot.ylabel("$σ [e^2/h]$")
-    pyplot.show()
+        plt.plot(x, y, label=label, linewidth=2)
+    plt.legend(loc=2, framealpha=0.5)
+    plt.xlabel("energy [t]")
+    plt.ylabel("$σ [e^2/h]$")
+    plt.savefig("ArmchairDosIANDcure.png", dpi=300)
+    #plt.show()
 
 
 def site_size_conversion(densities):
@@ -296,19 +299,20 @@ def site_size_conversion(densities):
 
 # Plot several local density of states maps in different subplots
 def plot_ldos(syst, densities):
-    fig, axes = pyplot.subplots(1, len(densities), figsize=(7*len(densities), 7))
+    fig, axes = plt.subplots(1, len(densities), figsize=(7*len(densities), 7))
     for ax, (title, rho) in zip(axes, densities):
         kwant.plotter.density(syst, rho.real, ax=ax)
         ax.set_title(title)
         ax.set(adjustable='box', aspect='equal')
-    pyplot.show()
+    plt.savefig("ArmchairLDos.png", dpi=300)   
+    #plt.show()
     
     
 spectrum = kwant.kpm.SpectralDensity(syst, rng=0)
 
 energies, densities = spectrum()
 
-energy_subset = np.linspace(0, 2)
+energy_subset = np.linspace(-3 ,3)
 density_subset = spectrum(energy_subset)
 
 plot_dos([
@@ -381,6 +385,7 @@ operator_spectrum = kwant.kpm.SpectralDensity(syst, operator=kwant_op, rng=0)
 
 # 'sum=False' is the default, but we include it explicitly here for clarity.
 kwant_op = kwant.operator.Density(syst, sum=False)
+kwant_op = kwant.operator.Density(syst, sum=False)
 local_dos = kwant.kpm.SpectralDensity(syst, operator=kwant_op, rng=0)
 
 zero_energy_ldos = local_dos(energy=0)
@@ -438,6 +443,7 @@ spectrum = kwant.kpm.SpectralDensity(fsyst_topo, num_vectors=None,
                                      vector_factory=s_factory,
                                      rng=0)
 
+
 plot_dos_and_curves(
 (spectrum.energies, spectrum.densities * 8),
 [
@@ -447,11 +453,12 @@ plot_dos_and_curves(
      (energies, cond_array_xy.real))],
 )
 
+
 # construct a generator of vectors with n random elements -1 or +1.
 n = syst.hamiltonian_submatrix(sparse=True).shape[0]
 def binary_vectors():
     while True:
-       yield np.rint(np.random.random_sample(n)) * 2 - 1
+        yield np.rint(np.random.random_sample(n)) * 2 - 1
 
 custom_factory = kwant.kpm.SpectralDensity(syst,
                                            vector_factory=binary_vectors(),

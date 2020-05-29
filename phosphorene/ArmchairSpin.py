@@ -14,7 +14,8 @@ lat = kwant.lattice.Polyatomic([[a,0],[0,b]],#bravis vectores
                                 [0.00*a , 0.00*b ],
                                 [0.25*a , 0.50*b ],
                                 [0.50*a , 0.50*b ],
-                                [0.75*a , 0.00*b ]])
+                                [0.75*a , 0.00*b ]],
+                                       norbs=1)
 
 
 W = 11 #Q = 21

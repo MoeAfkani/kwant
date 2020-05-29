@@ -1,10 +1,10 @@
 # Physics background
 import kwant
 import numpy as np
-from matplotlib import pyplot
+import matplotlib.pyplot as plt
 import scipy.sparse.linalg as sla
 from tqdm import  tqdm
-
+import scipy
 syst = kwant.Builder()
 
 b ,a ,c = 4.43, 3.27, 1
@@ -15,7 +15,8 @@ lat = kwant.lattice.Polyatomic([[a,0],[0,b]],#bravis vectores
                                 [0.00*a , 0.00*b ],
                                 [0.50*a , 0.25*b ],
                                 [0.50*a , 0.50*b ],
-                                [0.00*a , 0.75*b ]])
+                                [0.00*a , 0.75*b ]],
+                                      norbs=1)
 
 t1 = -1.220
 t2 =  3.665
@@ -157,12 +158,12 @@ def plot_wave_function(sys):
 #plot_wave_function(syst)
 
 
-fig, (ax1, ax0) = pyplot.subplots(ncols=2, figsize=[6, 10])
+fig, (ax1, ax0) = plt.subplots(ncols=2, figsize=[6, 10])
 
 # Now that we have the system, we can compute conductance
 energies = []
 data = []
-for energy in tqdm(np.linspace(-3,3,1000)):
+for energy in tqdm(np.linspace(-3,3,10)):
     # compute the scattering matrix at a given energy
     smatrix = kwant.smatrix(syst, energy)
 
@@ -189,9 +190,9 @@ ax1.set_xlabel("Wavevctor [(lattice constant)^-1]")
 ax1.set_ylabel("energy [t]")
 ax1.set_ylim(-3,3)
 ax1.set_xlim(-1,1)
-pyplot.savefig("ZigZag.png", dpi=300)
+plt.savefig("ZigZag.png", dpi=300)
 
-pyplot.show()
+plt.show()
     
 
 
@@ -208,3 +209,220 @@ filepath = 'hamiltoni.xlsx'
 
 df.to_excel(filepath, index=False)
 '''
+
+
+
+spectrum = kwant.kpm.SpectralDensity(syst, rng=0)
+energies, densities = spectrum()
+energy_subset = np.linspace(-7,-1)
+density_subset = spectrum(energy_subset)
+plt.plot(energy_subset,density_subset)
+
+# Fermi energy 0.1 and temperature 0.2
+fermi = lambda E: 1 / (np.exp((E - 0.1) / 0.2) + 1)
+
+print('number of filled states:', spectrum.integrate(fermi))
+
+def plot_dos(labels_to_data):
+    plt.figure()
+    for label, (x, y) in labels_to_data:
+        plt.plot(x, y.real, label=label, linewidth=2)
+    plt.legend(loc=2, framealpha=0.5)
+    plt.xlabel("energy [t]")
+    plt.ylabel("DoS [a.u.]")
+    plt.savefig("ZigZagDos.png", dpi=300)   
+    #plt.show()
+
+# Plot fill density of states plus curves on the same axes.
+def plot_dos_and_curves(dos, labels_to_data):
+    plt.figure()
+    plt.fill_between(dos[0], dos[1], label="DoS [a.u.]",
+                     alpha=0.5, color='gray')
+    for label, (x, y) in labels_to_data:
+        plt.plot(x, y, label=label, linewidth=2)
+    plt.legend(loc=2, framealpha=0.5)
+    plt.xlabel("energy [t]")
+    plt.ylabel("$σ [e^2/h]$")
+    plt.savefig("ZigZagDosIANDcure.png", dpi=300)
+    #plt.show()
+
+
+def site_size_conversion(densities):
+    return 3 * np.abs(densities) / max(densities)
+
+
+# Plot several local density of states maps in different subplots
+def plot_ldos(syst, densities):
+    fig, axes = plt.subplots(1, len(densities), figsize=(7*len(densities), 7))
+    for ax, (title, rho) in zip(axes, densities):
+        kwant.plotter.density(syst, rho.real, ax=ax)
+        ax.set_title(title)
+        ax.set(adjustable='box', aspect='equal')
+    plt.savefig("ZigZagLDos.png", dpi=300)   
+    #plt.show()
+    
+    
+spectrum = kwant.kpm.SpectralDensity(syst, rng=0)
+
+energies, densities = spectrum()
+
+energy_subset = np.linspace(-3 ,3)
+density_subset = spectrum(energy_subset)
+
+plot_dos([
+    ('densities', (energies, densities)),
+    ('density subset', (energy_subset, density_subset)),
+])
+
+print('identity resolution:', spectrum.integrate())
+
+# Fermi energy 0.1 and temperature 0.2
+fermi = lambda E: 1 / (np.exp((E - 0.1) / 0.2) + 1)
+
+print('number of filled states:', spectrum.integrate(fermi))
+
+def make_syst_staggered(r=30, t=-1, a=1, m=0.1):
+    syst = kwant.Builder()
+    lat = kwant.lattice.honeycomb(a, norbs=1)
+
+    def circle(pos):
+        x, y = pos
+        return x ** 2 + y ** 2 < r ** 2
+
+    syst[lat.a.shape(circle, (0, 0))] = m
+    syst[lat.b.shape(circle, (0, 0))] = -m
+    syst[lat.neighbors()] = t
+    syst.eradicate_dangling()
+
+    return syst
+
+fsyst_staggered = make_syst_staggered().finalized()
+# find 'A' and 'B' sites in the unit cell at the center of the disk
+center_tag = np.array([0, 0])
+where = lambda s: s.tag == center_tag
+# make local vectors
+vector_factory = kwant.kpm.LocalVectors(fsyst_staggered, where)
+
+# 'num_vectors' can be unspecified when using 'LocalVectors'
+local_dos = kwant.kpm.SpectralDensity(fsyst_staggered, num_vectors=None,
+                                      vector_factory=vector_factory,
+                                      mean=False,
+                                      rng=0)
+energies, densities = local_dos()
+
+plot_dos([
+    ('A sublattice', (energies, densities[:, 0])),
+    ('B sublattice', (energies, densities[:, 1])),
+])
+
+spectrum = kwant.kpm.SpectralDensity(syst, rng=0)
+original_dos = spectrum()
+
+spectrum.add_moments(energy_resolution=0.03)
+
+spectrum.add_moments(100)
+spectrum.add_vectors(5)
+
+increased_moments_dos = spectrum()
+plot_dos([
+    ('density', original_dos),
+    ('higher number of moments', increased_moments_dos),
+])
+
+# identity matrix
+matrix_op = scipy.sparse.eye(len(syst.sites))
+matrix_spectrum = kwant.kpm.SpectralDensity(syst, operator=matrix_op, rng=0)
+
+# 'sum=True' means we sum over all the sites
+kwant_op = kwant.operator.Density(syst, sum=True)
+operator_spectrum = kwant.kpm.SpectralDensity(syst, operator=kwant_op, rng=0)
+
+# 'sum=False' is the default, but we include it explicitly here for clarity.
+kwant_op = kwant.operator.Density(syst, sum=False)
+kwant_op = kwant.operator.Density(syst, sum=False)
+local_dos = kwant.kpm.SpectralDensity(syst, operator=kwant_op, rng=0)
+
+zero_energy_ldos = local_dos(energy=0)
+finite_energy_ldos = local_dos(energy=1)
+
+plot_ldos(syst, [
+    ('energy = 0', zero_energy_ldos),
+    ('energy = 1', finite_energy_ldos)
+])
+
+def make_syst_topo(r=30, a=1, t=1, t2=0.5):
+    syst = kwant.Builder()
+    lat = kwant.lattice.honeycomb(a, norbs=1, name=['a', 'b'])
+
+    def circle(pos):
+        x, y = pos
+        return x ** 2 + y ** 2 < r ** 2
+
+    syst[lat.shape(circle, (0, 0))] = 0.
+    syst[lat.neighbors()] = t
+    # add second neighbours hoppings
+    syst[lat.a.neighbors()] = 1j * t2
+    syst[lat.b.neighbors()] = -1j * t2
+    syst.eradicate_dangling()
+
+    return lat, syst.finalized()
+
+# construct the Haldane model
+lat, fsyst_topo = make_syst_topo()
+# find 'A' and 'B' sites in the unit cell at the center of the disk
+where = lambda s: np.linalg.norm(s.pos) < 1
+
+# component 'xx'
+s_factory = kwant.kpm.LocalVectors(fsyst_topo, where)
+cond_xx = kwant.kpm.conductivity(fsyst_topo, alpha='x', beta='x', mean=True,
+                                 num_vectors=None, vector_factory=s_factory,
+                                 rng=0)
+# component 'xy'
+s_factory = kwant.kpm.LocalVectors(fsyst_topo, where)
+cond_xy = kwant.kpm.conductivity(fsyst_topo, alpha='x', beta='y', mean=True,
+                                 num_vectors=None, vector_factory=s_factory,
+                                 rng=0)
+
+energies = cond_xx.energies
+cond_array_xx = np.array([cond_xx(e, temperature=0.01) for e in energies])
+cond_array_xy = np.array([cond_xy(e, temperature=0.01) for e in energies])
+
+# area of the unit cell per site
+area_per_site = np.abs(np.cross(*lat.prim_vecs)) / len(lat.sublattices)
+cond_array_xx /= area_per_site
+cond_array_xy /= area_per_site
+
+s_factory = kwant.kpm.LocalVectors(fsyst_topo, where)
+spectrum = kwant.kpm.SpectralDensity(fsyst_topo, num_vectors=None,
+                                     vector_factory=s_factory,
+                                     rng=0)
+
+
+plot_dos_and_curves(
+(spectrum.energies, spectrum.densities * 8),
+[
+    (r'Longitudinal conductivity $\sigma_{xx} / 4$',
+     (energies, cond_array_xx.real / 4)),
+    (r'Hall conductivity $\sigma_{xy}$',
+     (energies, cond_array_xy.real))],
+)
+
+
+# construct a generator of vectors with n random elements -1 or +1.
+n = syst.hamiltonian_submatrix(sparse=True).shape[0]
+def binary_vectors():
+    while True:
+        yield np.rint(np.random.random_sample(n)) * 2 - 1
+
+custom_factory = kwant.kpm.SpectralDensity(syst,
+                                           vector_factory=binary_vectors(),
+                                           rng=0)
+
+rho = kwant.operator.Density(syst, sum=True)
+
+# sesquilinear map that does the same thing as `rho`
+def rho_alt(bra, ket):
+    return np.vdot(bra, ket)
+
+rho_spectrum = kwant.kpm.SpectralDensity(syst, operator=rho, rng=0)
+rho_alt_spectrum = kwant.kpm.SpectralDensity(syst, operator=rho_alt, rng=0)
